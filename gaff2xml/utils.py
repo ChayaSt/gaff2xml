@@ -164,7 +164,8 @@ quit
 
     return prmtop_filename, inpcrd_filename
 
-def build_pdb(sequence, melecule_name, capping=None):
+
+def build_pdb(sequence, molecule_name, capping=None):
     """Run AmberTools tleap to generate pdb file for given sequence
     Parameters
     ----------
@@ -176,7 +177,7 @@ def build_pdb(sequence, melecule_name, capping=None):
         defaults to None if not given
         options include (ACE/NME) or (NALA/CPHE)
     """   
-    filename = "%s.pdb"
+    filename = "%s.pdb" % molecule_name
     seq = "{ %s }" % sequence
     
     if capping is not None:
@@ -190,7 +191,7 @@ def build_pdb(sequence, melecule_name, capping=None):
     quit
     """ % (seq, filename)
     
-    file_handle = tempfile.NamedTemporaryFile('wb')
+    file_handle = tempfile.NamedTemporaryFile('w')
     file_handle.writelines(tleap_input)
     file_handle.flush()
     
