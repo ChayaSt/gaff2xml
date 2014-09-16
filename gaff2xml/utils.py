@@ -164,7 +164,47 @@ quit
 
     return prmtop_filename, inpcrd_filename
 
+def build_pdb(sequence, melecule_name, capping=None):
+    """Run AmberTools tleap to generate pdb file for given sequence
+    Parameters
+    ----------
+    sequence: str
+        sequence of residue names with spaces between residues
+    outfile: str
+        path and name to write pdb file
+    capping: list of str, optional
+        defaults to None if not given
+        options include (ACE/NME) or (NALA/CPHE)
+    """   
+    filename = "%s.pdb"
+    seq = "{ %s }" % sequence
+    
+    if capping is not None:
+        seq = "{ %s %s %s }" % (capping[0], sequence, capping[-1])
 
+    
+    tleap_input = """
+    source leaprc.ff14SB
+    peptide = sequence %s
+    savepdb peptide %s
+    quit
+    """ % (seq, filename)
+    
+    file_handle = tempfile.NamedTemporaryFile('wb')
+    file_handle.writelines(tleap_input)
+    file_handle.flush()
+    
+    cmd = "tleap -f %s " % file_handle.name
+    logger.debug(cmd)
+    
+    output = getoutput(cmd)
+    logger.debug(output)
+    
+    file_handle.close()
+    
+    return filename
+    
+    
 def molecule_to_mol2(molecule, tripos_mol2_filename=None):
     """Convert OE molecule to tripos mol2 file.
 
