@@ -165,19 +165,25 @@ quit
     return prmtop_filename, inpcrd_filename
 
 
-def build_pdb(sequence, molecule_name, capping=None):
+def build_pdb(sequence, capping=None, pdb_filename=None):
     """Run AmberTools tleap to generate pdb file for given sequence
     Parameters
     ----------
     sequence: str
         sequence of residue names with spaces between residues
-    outfile: str
-        path and name to write pdb file
     capping: list of str, optional
         defaults to None if not given
         options include (ACE/NME) or (NALA/CPHE)
+    pdb_filename: str
+	optional. defaults to sequence.pdb
+    
+    Returns
+    -------
+    pdb_filename: name of pdb file
     """   
-    filename = "%s.pdb" % molecule_name
+    if pdb_filename is None:
+	pdb_filename = sequence + '.pdb' 
+  
     seq = "{ %s }" % sequence
     
     if capping is not None:
@@ -189,7 +195,7 @@ def build_pdb(sequence, molecule_name, capping=None):
     peptide = sequence %s
     savepdb peptide %s
     quit
-    """ % (seq, filename)
+    """ % (seq, pdb_filename)
     
     file_handle = tempfile.NamedTemporaryFile('w')
     file_handle.writelines(tleap_input)
@@ -203,7 +209,7 @@ def build_pdb(sequence, molecule_name, capping=None):
     
     file_handle.close()
     
-    return filename
+    return pdb_filename
     
     
 def molecule_to_mol2(molecule, tripos_mol2_filename=None):
