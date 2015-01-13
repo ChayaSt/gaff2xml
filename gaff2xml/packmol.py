@@ -24,6 +24,31 @@ structure %s
   inside box 0. 0. 0. %f %f %f
 end structure
 """
+PROTEIN_TEMPLATE = """
+structure %s
+    number %d
+    center
+    fixed 0.0 0.0 0.0 0.0 0.0 0.0 
+end structure
+
+"""
+
+TORUS_TEMPLATE = """
+structure %s
+    number %d
+    atoms %d
+        under plane 0.0 0.0 1.0 %f
+        over plane 0.0 0.0 1.0 -%f
+        outside sphere 0.0 0.0 0.0 %f
+    end atoms
+
+    atoms %d
+        under plane 0.0 0.0 1.0 %f
+        over plane 0.0 0.0 1.0 -%f
+        inside sphere 0.0 0.0 0.0 %f
+    end atoms
+end structure
+"""
 
 def pack_box(pdb_filenames, n_molecules_list, tolerance=2.0, box_size=None):
     """Run packmol to generate a box containing a mixture of molecules.
@@ -127,3 +152,68 @@ def approximate_volume(pdb_filenames, n_molecules_list):
         volume += molecule_volume * n_molecules_list[k]
     box_size = volume**(1.0/3.0) * rho
     return box_size
+
+def build_torus(pdb_filenames, n_molecule_list, plane, radius, head, tail, tolerance=2.5):
+    """Run packmol to generate a box containing a mixture of molecules.
+
+    Parameters
+    ----------
+    pdb_filenames : list(str)
+        List of pdb filenames for each component of mixture.
+    n_molecules_list : list(int)
+        The number of molecules of each mixture component.
+    plane: (int) height of sphere cut off
+    radius: list(int) inner and outer radius of sphere to constrain detergent
+    head: atom number(int) of detergent to point out of torus
+    tail: atom number(int) of detergent to point towards protein 
+    tolerance : float, optional, default=2.5
+        The mininum spacing between molecules during packing.  In ANGSTROMS!
+
+    Returns
+    -------
+    trj : MDTraj.Trajectory
+        Single frame trajectory with protein inside micelle that's shaped as a torus.
+
+    Notes
+    -----
+    Be aware that MDTraj uses nanometers internally, but packmol uses angstrom
+    units.  The present function takes `tolerance` and `box_size` in 
+    angstrom units, but the output trajectory will have data in nm.  
+    Also note that OpenMM is pretty picky about the format of unit cell input, 
+    so use the example in tests/test_packmol.py to ensure that you do the right thing.
+
+    """    
+    assert len(pdb_filenames) == len(n_molecules_list), "Must input same number of pdb filenames as num molecules"
+    
+    if PACKMOL_PATH is None:
+        raise(IOError("Packmol not found, cannot run pack_box()"))
+    
+    output_filename = tempfile.mktemp(suffix=".pdb")
+
+    header = HEADER_TEMPLATE % (tolerance, output_filename)
+    header = header + PROTEIN_TEMPLATE % (filname[0], n_molecules[0])
+    for k in range(1,len(pdb_filenames)):
+        filename = pdb_filenames[k]
+        n_molecules = n_molecules_list[k]
+        header = header + TORUS_TEMPLATE % (filename, n_molecules, head, plane, plane, radius[1], tail, plane, plane, radius[0])
+    
+    pwd = os.getcwd()
+    
+    print(header)
+    
+    packmol_filename = "packmol_input.txt"
+    packmol_filename = tempfile.mktemp(suffix=".txt")
+    
+    file_handle = open(packmol_filename, 'w')
+    file_handle.write(header)
+    file_handle.close()
+    
+    print(header)
+
+    os.system("%s < %s" % (PACKMOL_PATH, packmol_filename)) 
+     
+    trj = md.load(output_filename)
+
+    assert trj.topology.n_chains == sum(n_molecules_list), "Packmol error: molecules missing from output"
+    
+    return trj
